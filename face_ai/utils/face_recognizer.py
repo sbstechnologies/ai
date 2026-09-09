@@ -99,7 +99,6 @@ class FaceRecognizer:
 
                     encodings = []
                     if self.face_recognition_available and face_recognition is not None:
-                        # face_recognition location format: (top, right, bottom, left)
                         face_location = [(top, right, bottom, left)]
                         try:
                             encodings = face_recognition.face_encodings(rgb_img, known_face_locations=face_location)
@@ -140,6 +139,13 @@ class FaceRecognizer:
                                     "embedding": curr_emb.tolist()
                                 }
 
+                    if top < 40:
+                        bg_top, bg_bottom = top, top + 40
+                        text_y1, text_y2 = top + 18, top + 34
+                    else:
+                        bg_top, bg_bottom = top - 40, top
+                        text_y1, text_y2 = top - 22, top - 5
+
                     if match_found and best_match:
                         recognized_faces.append(best_match)
                         # Green Box
@@ -147,9 +153,9 @@ class FaceRecognizer:
                         label_text = f"{best_match['name']} ({best_match['user_code']})"
                         sub_text = f"{best_match['confidence']*100:.1f}% Match"
 
-                        cv2.rectangle(annotated_img, (left, max(0, top - 40)), (right, top), (0, 255, 0), cv2.FILLED)
-                        cv2.putText(annotated_img, label_text, (left + 5, top - 22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-                        cv2.putText(annotated_img, sub_text, (left + 5, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1)
+                        cv2.rectangle(annotated_img, (left, bg_top), (right, bg_bottom), (0, 255, 0), cv2.FILLED)
+                        cv2.putText(annotated_img, label_text, (left + 5, text_y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                        cv2.putText(annotated_img, sub_text, (left + 5, text_y2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1)
                     else:
                         unrecognized_info = {
                             "user_code": "UNKNOWN",
@@ -167,9 +173,9 @@ class FaceRecognizer:
                         cv2.rectangle(annotated_img, (left, top), (right, bottom), (0, 0, 255), 2)
                         label_text = "Unknown Face"
                         sub_text = f"Det: {box_conf*100:.1f}%"
-                        cv2.rectangle(annotated_img, (left, max(0, top - 40)), (right, top), (0, 0, 255), cv2.FILLED)
-                        cv2.putText(annotated_img, label_text, (left + 5, top - 22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                        cv2.putText(annotated_img, sub_text, (left + 5, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                        cv2.rectangle(annotated_img, (left, bg_top), (right, bg_bottom), (0, 0, 255), cv2.FILLED)
+                        cv2.putText(annotated_img, label_text, (left + 5, text_y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        cv2.putText(annotated_img, sub_text, (left + 5, text_y2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
                 except Exception as ex:
                     print(f"[Face Processing Error] {ex}")
 
@@ -215,6 +221,9 @@ class FaceRecognizer:
         crop_right, crop_bottom = min(w, right + pad), min(h, bottom + pad)
 
         face_crop = image_bgr[crop_top:crop_bottom, crop_left:crop_right]
+
+        if face_crop.size == 0:
+            return None, None, "Extracted face crop is empty. Please check photo alignment."
 
         face_location = [(top, right, bottom, left)]
         try:

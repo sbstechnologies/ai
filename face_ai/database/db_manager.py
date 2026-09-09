@@ -3,6 +3,7 @@ import json
 import sqlite3
 import pandas as pd
 from datetime import datetime
+
 try:
     import mysql.connector
     from mysql.connector import Error as MySQLError
@@ -181,7 +182,7 @@ class DatabaseManager:
     def get_all_users(self):
         conn = self.get_connection()
         try:
-            df = pd.read_sql("SELECT user_code, name, department, role, email, photo_path, created_at FROM users", conn)
+            df = pd.read_sql_query("SELECT user_code, name, department, role, email, photo_path, created_at FROM users", conn)
             return df
         except Exception as e:
             print(f"[DB Error] get_all_users: {e}")
@@ -219,6 +220,18 @@ class DatabaseManager:
         conn = self.get_connection()
         cursor = conn.cursor()
         try:
+            # Delete photo file if present
+            if isinstance(conn, sqlite3.Connection):
+                cursor.execute("SELECT photo_path FROM users WHERE user_code = ?", (user_code,))
+            else:
+                cursor.execute("SELECT photo_path FROM users WHERE user_code = %s", (user_code,))
+            row = cursor.fetchone()
+            if row and row[0] and os.path.exists(row[0]):
+                try:
+                    os.remove(row[0])
+                except Exception as file_err:
+                    print(f"[DB Notice] Could not remove photo file {row[0]}: {file_err}")
+
             if isinstance(conn, sqlite3.Connection):
                 cursor.execute("DELETE FROM users WHERE user_code = ?", (user_code,))
             else:
@@ -259,12 +272,12 @@ class DatabaseManager:
                     cursor.execute("""
                         INSERT INTO attendance (user_code, name, department, date, check_in, status, confidence, snapshot_path)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (user_code, name, department, date_str, time_str, status, confidence, snapshot_path))
+                    """, (user_code, name, department, date_str, time_str, status, float(confidence), snapshot_path))
                 else:
                     cursor.execute("""
                         INSERT INTO attendance (user_code, name, department, date, check_in, status, confidence, snapshot_path)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (user_code, name, department, date_str, time_str, status, confidence, snapshot_path))
+                    """, (user_code, name, department, date_str, time_str, status, float(confidence), snapshot_path))
                 conn.commit()
                 return "marked", time_str
         except Exception as e:
@@ -297,7 +310,7 @@ class DatabaseManager:
                 params.append(f"%{user_code}%")
 
             query += " ORDER BY date DESC, check_in DESC"
-            df = pd.read_sql(query, conn, params=params)
+            df = pd.read_sql_query(query, conn, params=params)
             return df
         except Exception as e:
             print(f"[DB Error] get_attendance_records: {e}")
@@ -311,22 +324,22 @@ class DatabaseManager:
         
         conn = self.get_connection()
         try:
-            df_users = pd.read_sql("SELECT COUNT(*) as total_users FROM users", conn)
-            total_users = df_users.iloc[0]["total_users"] if not df_users.empty else 0
+            df_users = pd.read_sql_query("SELECT COUNT(*) as total_users FROM users", conn)
+            total_users = int(df_users.iloc[0]["total_users"]) if not df_users.empty else 0
 
             is_sqlite = isinstance(conn, sqlite3.Connection)
             p_placeholder = "?" if is_sqlite else "%s"
 
-            df_att = pd.read_sql(f"SELECT status FROM attendance WHERE date = {p_placeholder}", conn, params=[date_str])
+            df_att = pd.read_sql_query(f"SELECT status FROM attendance WHERE date = {p_placeholder}", conn, params=[date_str])
             present_count = len(df_att)
             late_count = len(df_att[df_att["status"] == "Late"])
             absent_count = max(0, total_users - present_count)
 
             return {
-                "total_users": total_users,
-                "present": present_count,
-                "late": late_count,
-                "absent": absent_count,
+                "total_users": int(total_users),
+                "present": int(present_count),
+                "late": int(late_count),
+                "absent": int(absent_count),
             }
         except Exception as e:
             print(f"[DB Error] get_today_summary: {e}")
@@ -343,12 +356,12 @@ class DatabaseManager:
                 cursor.execute("""
                     INSERT INTO face_detections (camera_name, face_count, confidence)
                     VALUES (?, ?, ?)
-                """, (camera_name, face_count, confidence))
+                """, (camera_name, int(face_count), float(confidence)))
             else:
                 cursor.execute("""
                     INSERT INTO face_detections (camera_name, face_count, confidence)
                     VALUES (%s, %s, %s)
-                """, (camera_name, face_count, confidence))
+                """, (camera_name, int(face_count), float(confidence)))
             conn.commit()
             return True
         except Exception as e:
@@ -361,8 +374,9 @@ class DatabaseManager:
     def load_detection_logs(self, limit=100):
         conn = self.get_connection()
         try:
-            query = f"SELECT id, detected_at, camera_name, face_count, confidence FROM face_detections ORDER BY detected_at DESC LIMIT {limit}"
-            df = pd.read_sql(query, conn)
+            clean_limit = int(limit)
+            query = f"SELECT id, detected_at, camera_name, face_count, confidence FROM face_detections ORDER BY detected_at DESC LIMIT {clean_limit}"
+            df = pd.read_sql_query(query, conn)
             return df
         except Exception as e:
             print(f"[DB Error] load_detection_logs: {e}")
