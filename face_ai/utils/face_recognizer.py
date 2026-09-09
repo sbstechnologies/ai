@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import face_recognition
@@ -6,8 +7,22 @@ from ultralytics import YOLO
 
 class FaceRecognizer:
     def __init__(self, model_path="models/face_model.pt"):
-        self.model_path = model_path
+        self.model_path = self._resolve_model_path(model_path)
         self.yolo_model = self.load_yolo_model()
+
+    def _resolve_model_path(self, path):
+        if os.path.isabs(path) and os.path.exists(path):
+            return path
+        if os.path.exists(path):
+            return path
+        file_dir = os.path.dirname(os.path.abspath(__file__))
+        alt_path1 = os.path.abspath(os.path.join(file_dir, "..", path))
+        if os.path.exists(alt_path1):
+            return alt_path1
+        alt_path2 = os.path.abspath(os.path.join(file_dir, "..", "models", os.path.basename(path)))
+        if os.path.exists(alt_path2):
+            return alt_path2
+        return path
 
     def load_yolo_model(self):
         try:

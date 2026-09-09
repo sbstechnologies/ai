@@ -4,6 +4,10 @@ import cv2
 import numpy as np
 from datetime import datetime
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from database.db_manager import DatabaseManager
 from utils.face_recognizer import FaceRecognizer
 
@@ -11,7 +15,7 @@ def test_full_pipeline():
     print("=== STARTING FACE AI SYSTEM END-TO-END VERIFICATION ===")
     
     # 1. Initialize DB
-    test_db_path = os.path.join("database", "test_attendance.db")
+    test_db_path = os.path.join(BASE_DIR, "database", "test_attendance.db")
     if os.path.exists(test_db_path):
         os.remove(test_db_path)
         
@@ -19,11 +23,12 @@ def test_full_pipeline():
     print("1. Database Manager initialized successfully.")
 
     # 2. Initialize Recognizer
-    recognizer = FaceRecognizer(model_path="models/face_model.pt")
+    model_path = os.path.join(BASE_DIR, "models", "face_model.pt")
+    recognizer = FaceRecognizer(model_path=model_path)
     if recognizer.yolo_model is None:
         print("ERROR: YOLO Model failed to load!")
         sys.exit(1)
-    print("2. FaceRecognizer & YOLO model loaded successfully.")
+    print(f"2. FaceRecognizer & YOLO model loaded successfully from {recognizer.model_path}.")
 
     # 3. Create a synthetic human face image for registration test using OpenCV drawing
     h, w = 400, 400

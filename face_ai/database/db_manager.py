@@ -14,30 +14,53 @@ DEFAULT_SQLITE_PATH = os.path.join(os.path.dirname(__file__), "attendance.db")
 
 
 class DatabaseManager:
-    def __init__(self, db_type="sqlite", host="localhost", user="root", password="", database="face_ai", sqlite_path=DEFAULT_SQLITE_PATH):
+    def __init__(self, db_type="sqlite", host="localhost", user="root", password="", database="face_ai", sqlite_path=DEFAULT_SQLITE_PATH, port=3306):
         self.db_type = db_type.lower()
         self.host = host
         self.user = user
         self.password = password
         self.database = database
+        self.port = int(port) if port else 3306
         self.sqlite_path = sqlite_path
+        self.connection_warning = None
+        self.using_fallback_sqlite = False
         os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
         self.init_db()
 
     def get_connection(self):
-        if self.db_type == "mysql" and MYSQL_AVAILABLE:
+        if self.db_type == "mysql":
+            if not MYSQL_AVAILABLE:
+                msg = "mysql-connector-python module is not available. Falling back to local SQLite."
+                print(f"[DB Warning] {msg}")
+                self.connection_warning = msg
+                self.using_fallback_sqlite = True
+                return sqlite3.connect(self.sqlite_path)
             try:
                 conn = mysql.connector.connect(
                     host=self.host,
                     user=self.user,
                     password=self.password,
-                    database=self.database
+                    database=self.database,
+                    port=self.port
                 )
+                self.connection_warning = None
+                self.using_fallback_sqlite = False
                 return conn
             except MySQLError as e:
-                print(f"[DB Warning] MySQL connection failed ({e}). Falling back to SQLite.")
+                msg = f"MySQL connection to {self.host}:{self.port} failed ({e}). Falling back to local SQLite."
+                print(f"[DB Warning] {msg}")
+                self.connection_warning = msg
+                self.using_fallback_sqlite = True
+                return sqlite3.connect(self.sqlite_path)
+            except Exception as ex:
+                msg = f"Database error ({ex}). Falling back to local SQLite."
+                print(f"[DB Warning] {msg}")
+                self.connection_warning = msg
+                self.using_fallback_sqlite = True
                 return sqlite3.connect(self.sqlite_path)
         else:
+            self.connection_warning = None
+            self.using_fallback_sqlite = False
             return sqlite3.connect(self.sqlite_path)
 
     def init_db(self):

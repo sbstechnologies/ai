@@ -1,10 +1,16 @@
 import os
+import sys
 import cv2
 import numpy as np
 import pandas as pd
 import streamlit as st
 from datetime import datetime, time
 from io import BytesIO
+
+# Base directory setup for reliable deployment & path resolution
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 from database.db_manager import DatabaseManager
 from utils.face_recognizer import FaceRecognizer
@@ -13,9 +19,12 @@ from utils.face_recognizer import FaceRecognizer
 # =========================================================
 # INITIALIZATION & THEME DETECTION
 # =========================================================
+logo_path = os.path.join(BASE_DIR, "assets", "logo.png")
+user_placeholder_path = os.path.join(BASE_DIR, "assets", "user_placeholder.png")
+
 st.set_page_config(
     page_title="Face AI Suite • Mobile Edition",
-    page_icon="assets/logo.png" if os.path.exists("assets/logo.png") else "📱",
+    page_icon=logo_path if os.path.exists(logo_path) else "📱",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -345,53 +354,104 @@ st.markdown(f"""
 # =========================================================
 # DB & MODEL INITIALIZATION
 # =========================================================
-REGISTERED_FACES_DIR = os.path.join("database", "registered_faces")
-SNAPSHOTS_DIR = os.path.join("database", "snapshots")
+REGISTERED_FACES_DIR = os.path.join(BASE_DIR, "database", "registered_faces")
+SNAPSHOTS_DIR = os.path.join(BASE_DIR, "database", "snapshots")
 os.makedirs(REGISTERED_FACES_DIR, exist_ok=True)
 os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
 
+
+def get_secret_val(key, default=""):
+    try:
+        return st.secrets.get(key, default)
+    except Exception:
+        return default
+
+
+def load_db_credentials():
+    """
+    Load database credentials from st.secrets if available,
+    falling back to local default values.
+    """
+    secrets_db = {}
+    try:
+        if "mysql" in st.secrets:
+            secrets_db = dict(st.secrets["mysql"])
+        elif "database" in st.secrets:
+            secrets_db = dict(st.secrets["database"])
+    except Exception:
+        secrets_db = {}
+
+    db_type = secrets_db.get("db_type") or get_secret_val("db_type", "sqlite")
+    host = secrets_db.get("host") or get_secret_val("mysql_host", "localhost")
+    user = secrets_db.get("user") or get_secret_val("mysql_user", "root")
+    password = secrets_db.get("password") or get_secret_val("mysql_pass", "")
+    database = secrets_db.get("database") or get_secret_val("mysql_db", "face_ai")
+    port = int(secrets_db.get("port") or get_secret_val("mysql_port", 3306))
+
+    if (secrets_db.get("host") or get_secret_val("mysql_host")) and not get_secret_val("db_type") and "db_type" not in secrets_db:
+        db_type = "mysql"
+
+    return db_type, host, user, password, database, port
+
+
+secret_db_type, secret_host, secret_user, secret_pass, secret_db, secret_port = load_db_credentials()
+
 if "db_type" not in st.session_state:
-    st.session_state["db_type"] = "sqlite"
+    st.session_state["db_type"] = secret_db_type
 if "mysql_host" not in st.session_state:
-    st.session_state["mysql_host"] = "localhost"
+    st.session_state["mysql_host"] = secret_host
 if "mysql_user" not in st.session_state:
-    st.session_state["mysql_user"] = "root"
+    st.session_state["mysql_user"] = secret_user
 if "mysql_pass" not in st.session_state:
-    st.session_state["mysql_pass"] = ""
+    st.session_state["mysql_pass"] = secret_pass
 if "mysql_db" not in st.session_state:
-    st.session_state["mysql_db"] = "face_ai"
+    st.session_state["mysql_db"] = secret_db
+if "mysql_port" not in st.session_state:
+    st.session_state["mysql_port"] = secret_port
 
 
 @st.cache_resource
-def get_db_instance(db_type, host, user, password, database):
+def get_db_instance(db_type, host, user, password, database, port=3306):
+    sqlite_path = os.path.join(BASE_DIR, "database", "attendance.db")
     return DatabaseManager(
         db_type=db_type,
         host=host,
         user=user,
         password=password,
-        database=database
+        database=database,
+        sqlite_path=sqlite_path,
+        port=port
     )
 
 
 @st.cache_resource
 def load_recognizer():
-    return FaceRecognizer(model_path="models/face_model.pt")
+    model_path = os.path.join(BASE_DIR, "models", "face_model.pt")
+    return FaceRecognizer(model_path=model_path)
 
 
-db = get_db_instance(
-    st.session_state["db_type"],
-    st.session_state["mysql_host"],
-    st.session_state["mysql_user"],
-    st.session_state["mysql_pass"],
-    st.session_state["mysql_db"]
-)
+try:
+    db = get_db_instance(
+        st.session_state["db_type"],
+        st.session_state["mysql_host"],
+        st.session_state["mysql_user"],
+        st.session_state["mysql_pass"],
+        st.session_state["mysql_db"],
+        st.session_state.get("mysql_port", 3306)
+    )
+    if hasattr(db, "connection_warning") and db.connection_warning:
+        st.warning(f"⚠️ **Database Notice:** {db.connection_warning}")
+except Exception as db_err:
+    st.error(f"❌ **Database Initialization Error:** {db_err}")
+    sqlite_path = os.path.join(BASE_DIR, "database", "attendance.db")
+    db = DatabaseManager(db_type="sqlite", sqlite_path=sqlite_path)
+
 recognizer = load_recognizer()
 
 
 # =========================================================
 # FIXED TOP NAVBAR (HEADER APP BAR)
 # =========================================================
-logo_path = os.path.join("assets", "logo.png")
 now_time = datetime.now().strftime("%I:%M %p")
 
 st.markdown(f"""
@@ -811,6 +871,7 @@ elif selected_tab == "⚙️ Settings":
     else:
         st.session_state["db_type"] = "mysql"
         st.session_state["mysql_host"] = st.text_input("MySQL Host", value=st.session_state["mysql_host"])
+        st.session_state["mysql_port"] = st.number_input("MySQL Port", value=int(st.session_state.get("mysql_port", 3306)), min_value=1, max_value=65535)
         st.session_state["mysql_user"] = st.text_input("MySQL User", value=st.session_state["mysql_user"])
         st.session_state["mysql_pass"] = st.text_input("MySQL Password", value=st.session_state["mysql_pass"], type="password")
         st.session_state["mysql_db"] = st.text_input("MySQL Database Name", value=st.session_state["mysql_db"])
@@ -822,9 +883,13 @@ elif selected_tab == "⚙️ Settings":
                 st.session_state["mysql_host"],
                 st.session_state["mysql_user"],
                 st.session_state["mysql_pass"],
-                st.session_state["mysql_db"]
+                st.session_state["mysql_db"],
+                st.session_state["mysql_port"]
             )
-            st.success("Successfully connected to MySQL database!")
+            if hasattr(test_db, "connection_warning") and test_db.connection_warning:
+                st.warning(f"⚠️ {test_db.connection_warning}")
+            else:
+                st.success("Successfully connected to MySQL database!")
 
     st.divider()
     st.markdown(f"""
