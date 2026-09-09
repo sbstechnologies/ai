@@ -448,6 +448,10 @@ except Exception as db_err:
 
 recognizer = load_recognizer()
 
+if hasattr(recognizer, "face_recognition_available") and not recognizer.face_recognition_available:
+    st.sidebar.warning(f"⚠️ **Engine Notice:** Face feature matching engine (dlib) is limited: {getattr(recognizer, 'face_recognition_error', '')}")
+
+
 
 # =========================================================
 # FIXED TOP NAVBAR (HEADER APP BAR)
@@ -590,7 +594,7 @@ if selected_tab == "🎥 Live Scan":
                 tolerance=tolerance
             )
 
-            st.image(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB), caption=f"YOLO Face AI Analysis ({face_count} face(s) detected)", use_container_width=True)
+            st.image(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB), caption=f"YOLO Face AI Analysis ({face_count} face(s) detected)", width="stretch")
 
     with col_log:
         st.markdown("### 📋 Recognition Stream")
@@ -689,7 +693,7 @@ elif selected_tab == "👤 Register":
 
     st.divider()
 
-    if st.button("💾 Save & Complete Registration", use_container_width=True, type="primary"):
+    if st.button("💾 Save & Complete Registration", width="stretch", type="primary"):
         if not user_code or not name:
             st.error("⚠️ User Code / Employee ID and Full Name are required fields!")
         elif reg_img_bgr is None:
@@ -827,7 +831,7 @@ elif selected_tab == "📊 Reports":
         if "confidence" in df_display.columns:
             df_display["confidence"] = df_display["confidence"].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "N/A")
 
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        st.dataframe(df_display, width="stretch", hide_index=True)
 
         st.markdown("### 📥 Export Options")
         exp_col1, exp_col2 = st.columns(2)
@@ -839,7 +843,7 @@ elif selected_tab == "📊 Reports":
                 data=csv_data,
                 file_name=f"Attendance_Report_{date_from}_to_{date_to}.csv",
                 mime="text/csv",
-                use_container_width=True
+                width="stretch"
             )
 
         with exp_col2:
@@ -851,7 +855,7 @@ elif selected_tab == "📊 Reports":
                 data=buffer.getvalue(),
                 file_name=f"Attendance_Report_{date_from}_to_{date_to}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                width="stretch"
             )
     else:
         st.info("No attendance records found matching the specified criteria.")

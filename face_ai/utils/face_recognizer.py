@@ -1,13 +1,31 @@
 import os
 import cv2
 import numpy as np
-import face_recognition
-from ultralytics import YOLO
+
+try:
+    import face_recognition
+    FACE_RECOGNITION_AVAILABLE = True
+    FACE_RECOGNITION_ERROR = None
+except Exception as e:
+    face_recognition = None
+    FACE_RECOGNITION_AVAILABLE = False
+    FACE_RECOGNITION_ERROR = str(e)
+    print(f"[FaceRecognizer Warning] face_recognition module failed to load: {e}")
+
+try:
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
+except Exception as e:
+    YOLO = None
+    YOLO_AVAILABLE = False
+    print(f"[FaceRecognizer Warning] ultralytics YOLO failed to load: {e}")
 
 
 class FaceRecognizer:
     def __init__(self, model_path="models/face_model.pt"):
         self.model_path = self._resolve_model_path(model_path)
+        self.face_recognition_available = FACE_RECOGNITION_AVAILABLE
+        self.face_recognition_error = FACE_RECOGNITION_ERROR
         self.yolo_model = self.load_yolo_model()
 
     def _resolve_model_path(self, path):
@@ -25,6 +43,9 @@ class FaceRecognizer:
         return path
 
     def load_yolo_model(self):
+        if not YOLO_AVAILABLE or YOLO is None:
+            print("[YOLO Error] Ultralytics module not available.")
+            return None
         try:
             return YOLO(self.model_path)
         except Exception as e:
@@ -76,16 +97,18 @@ class FaceRecognizer:
                     if (right - left) < 10 or (bottom - top) < 10:
                         continue
 
-                    # face_recognition location format: (top, right, bottom, left)
-                    face_location = [(top, right, bottom, left)]
-
-                    # Extract 128-d face encoding
-                    encodings = face_recognition.face_encodings(rgb_img, known_face_locations=face_location)
-
-                    if len(encodings) == 0:
-                        crop_roi = rgb_img[top:bottom, left:right]
-                        if crop_roi.size > 0:
-                            encodings = face_recognition.face_encodings(crop_roi)
+                    encodings = []
+                    if self.face_recognition_available and face_recognition is not None:
+                        # face_recognition location format: (top, right, bottom, left)
+                        face_location = [(top, right, bottom, left)]
+                        try:
+                            encodings = face_recognition.face_encodings(rgb_img, known_face_locations=face_location)
+                            if len(encodings) == 0:
+                                crop_roi = rgb_img[top:bottom, left:right]
+                                if crop_roi.size > 0:
+                                    encodings = face_recognition.face_encodings(crop_roi)
+                        except Exception as fr_err:
+                            print(f"[FaceRecognition Error] {fr_err}")
 
                     match_found = False
                     best_match = None
@@ -93,7 +116,7 @@ class FaceRecognizer:
                     # Filter valid known users with 128-d embeddings
                     valid_known = [u for u in known_users if isinstance(u.get("embedding"), (list, np.ndarray)) and len(u["embedding"]) == 128]
 
-                    if len(encodings) > 0 and len(valid_known) > 0:
+                    if len(encodings) > 0 and len(valid_known) > 0 and self.face_recognition_available:
                         curr_emb = np.array(encodings[0], dtype=np.float64)
                         known_embs = [np.array(u["embedding"], dtype=np.float64) for u in valid_known]
 
@@ -160,6 +183,9 @@ class FaceRecognizer:
         if image_bgr is None or self.yolo_model is None:
             return None, None, "Invalid image or YOLO model not loaded."
 
+        if not self.face_recognition_available or face_recognition is None:
+            return None, None, f"Face recognition library (dlib) is not available: {self.face_recognition_error}"
+
         h, w, _ = image_bgr.shape
         rgb_img = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
@@ -191,11 +217,12 @@ class FaceRecognizer:
         face_crop = image_bgr[crop_top:crop_bottom, crop_left:crop_right]
 
         face_location = [(top, right, bottom, left)]
-        encodings = face_recognition.face_encodings(rgb_img, known_face_locations=face_location)
-
-        if len(encodings) == 0:
-            if face_crop.size > 0:
+        try:
+            encodings = face_recognition.face_encodings(rgb_img, known_face_locations=face_location)
+            if len(encodings) == 0 and face_crop.size > 0:
                 encodings = face_recognition.face_encodings(cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB))
+        except Exception as ex:
+            return None, None, f"Face feature extraction error: {ex}"
 
         if len(encodings) == 0:
             return None, None, "Could not extract facial features. Please try another photo with clear lighting."
