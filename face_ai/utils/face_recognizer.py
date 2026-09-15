@@ -1,5 +1,12 @@
 import os
-import cv2
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except Exception as e:
+    cv2 = None
+    CV2_AVAILABLE = False
+    print(f"[FaceRecognizer Warning] cv2 failed to load: {e}")
+
 import numpy as np
 
 try:

@@ -1,6 +1,5 @@
 import os
 import sys
-import cv2
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -12,13 +11,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from database.db_manager import DatabaseManager
-from utils.face_recognizer import FaceRecognizer
-
-
-# =========================================================
-# INITIALIZATION & THEME DETECTION
-# =========================================================
 logo_path = os.path.join(BASE_DIR, "assets", "logo.png")
 user_placeholder_path = os.path.join(BASE_DIR, "assets", "user_placeholder.png")
 
@@ -28,6 +20,21 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+try:
+    import cv2
+except ImportError as e:
+    st.error(
+        f"⚠️ **OpenCV (`cv2`) Import Failed:** `{e}`\n\n"
+        "**Solution for Streamlit Cloud / Linux Deployments:**\n"
+        "1. Ensure `packages.txt` includes required system shared libraries: `libgl1`, `libglib2.0-0`, `libsm6`, `libxext6`, `ffmpeg`.\n"
+        "2. Ensure `requirements.txt` specifies `opencv-python-headless>=4.8.0`."
+    )
+    st.stop()
+
+from database.db_manager import DatabaseManager
+from utils.face_recognizer import FaceRecognizer
+
 
 if "theme_setting" not in st.session_state:
     st.session_state["theme_setting"] = "Automatic (Based on Time)"
@@ -44,15 +51,15 @@ else:
 
 # Theme Color Palette Tokens
 if active_theme == "light":
-    theme_bg = "#f8fafc"
+    theme_bg = "#f1f5f9"
     theme_text = "#0f172a"
     theme_subtext = "#475569"
     sidebar_bg = "#ffffff"
-    sidebar_border = "#e2e8f0"
+    sidebar_border = "#cbd5e1"
     card_bg = "#ffffff"
     card_border = "#e2e8f0"
-    card_shadow = "0 4px 14px rgba(0, 0, 0, 0.05)"
-    header_bg = "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0369a1 100%)"
+    card_shadow = "0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04)"
+    header_bg = "rgba(15, 23, 42, 0.95)"
     header_title = "linear-gradient(90deg, #38bdf8 0%, #60a5fa 100%)"
     badge_bg = "rgba(2, 132, 199, 0.12)"
     badge_fg = "#0284c7"
@@ -60,7 +67,7 @@ if active_theme == "light":
     tab_inactive_bg = "#ffffff"
     tab_inactive_fg = "#475569"
     tab_active_bg = "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)"
-    btn_bg = "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)"
+    btn_bg = "linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%)"
     btn_fg = "#ffffff"
     input_bg = "#ffffff"
     input_border = "#cbd5e1"
@@ -72,29 +79,29 @@ if active_theme == "light":
     mode_icon = "☀️"
     mode_label = "Daytime Light Mode"
 else:
-    theme_bg = "#0b192c"
+    theme_bg = "#070d17"
     theme_text = "#f8fafc"
     theme_subtext = "#94a3b8"
     sidebar_bg = "#0f172a"
     sidebar_border = "rgba(56, 189, 248, 0.2)"
-    card_bg = "#1e293b"
+    card_bg = "rgba(17, 24, 39, 0.85)"
     card_border = "rgba(56, 189, 248, 0.25)"
-    card_shadow = "0 6px 20px rgba(0, 0, 0, 0.4)"
-    header_bg = "linear-gradient(135deg, #0b192c 0%, #1e3e62 60%, #0f172a 100%)"
+    card_shadow = "0 10px 30px rgba(0, 0, 0, 0.5)"
+    header_bg = "rgba(7, 13, 23, 0.95)"
     header_title = "linear-gradient(90deg, #38bdf8 0%, #818cf8 100%)"
     badge_bg = "rgba(56, 189, 248, 0.15)"
     badge_fg = "#38bdf8"
     badge_border = "rgba(56, 189, 248, 0.4)"
-    tab_inactive_bg = "#1e293b"
-    tab_inactive_fg = "#cbd5e1"
+    tab_inactive_bg = "#111827"
+    tab_inactive_fg = "#94a3b8"
     tab_active_bg = "linear-gradient(135deg, #2563eb 0%, #0284c7 100%)"
     btn_bg = "linear-gradient(135deg, #2563eb 0%, #0284c7 100%)"
     btn_fg = "#ffffff"
-    input_bg = "#1e293b"
-    input_border = "#334155"
+    input_bg = "#111827"
+    input_border = "#1f2937"
     input_text = "#f8fafc"
-    hr_color = "#334155"
-    company_box_bg = "linear-gradient(135deg, #0b192c 0%, #1e3e62 100%)"
+    hr_color = "#1f2937"
+    company_box_bg = "linear-gradient(135deg, #0b1329 0%, #111e38 100%)"
     company_box_fg = "#f8fafc"
     company_box_link = "#38bdf8"
     mode_icon = "🌙"
@@ -114,71 +121,113 @@ st.markdown(f"""
 
     /* Main Container Padding to account for Fixed Top Navbar & Fixed Bottom Menu */
     .main .block-container {{
-        padding-top: 75px !important;
-        padding-bottom: 95px !important;
-        padding-left: 1.2rem;
-        padding-right: 1.2rem;
-        max-width: 100% !important;
+        padding-top: 80px !important;
+        padding-bottom: 105px !important;
+        padding-left: 1.2rem !important;
+        padding-right: 1.2rem !important;
+        max-width: 1400px !important;
+        margin: 0 auto;
     }}
 
     /* Global Headings & Typography */
-    h1, h2, h3, h4, h5, h6, p, span, label, div, .stMarkdown, .stMarkdown p {{
+    h1, h2, h3, h4, h5, h6 {{
+        color: {theme_text} !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em !important;
+    }}
+
+    p, span, div, .stMarkdown, .stMarkdown p {{
         color: {theme_text} !important;
     }}
 
     label[data-testid="stWidgetLabel"], .stCaption, [data-testid="stCaptionContainer"] {{
         color: {theme_subtext} !important;
         font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        margin-bottom: 4px !important;
     }}
 
-    /* FIXED TOP NAVBAR */
+    /* FIXED TOP NAVBAR WITH GLASSMORPHISM */
     .fixed-top-navbar {{
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        height: 58px;
+        height: 62px;
         background: {header_bg};
-        border-bottom: 2px solid #0284c7;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(56, 189, 248, 0.25);
         z-index: 99998;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 16px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        padding: 0 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }}
+
     .nav-brand {{
         display: flex;
         align-items: center;
-        gap: 10px;
-    }}
-    .nav-title {{
-        font-size: 1.15rem;
-        font-weight: 800;
-        color: #38bdf8 !important;
-        margin: 0;
-    }}
-    .nav-status {{
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #10b981 !important;
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        padding: 4px 10px;
-        border-radius: 12px;
+        gap: 12px;
     }}
 
-    /* FIXED BOTTOM NAVIGATION MENU BAR FOR MOBILEN & ALL DEVICES */
+    .nav-title {{
+        font-size: 1.2rem;
+        font-weight: 800;
+        background: {header_title};
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.02em;
+        margin: 0;
+    }}
+
+    .nav-status {{
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #10b981 !important;
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 4px 12px;
+        border-radius: 20px;
+    }}
+
+    .pulse-dot {{
+        width: 8px;
+        height: 8px;
+        background-color: #10b981;
+        border-radius: 50%;
+        animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }}
+
+    @keyframes pulse-ring {{
+        0% {{
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }}
+        70% {{
+            box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+        }}
+        100% {{
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+        }}
+    }}
+
+    /* FIXED BOTTOM NAVIGATION MENU BAR FOR MOBILE & DESKTOP */
     .bottom-nav-wrapper {{
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
         background: {theme_bg};
-        border-top: 2px solid #0284c7;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid {card_border};
         z-index: 99999;
-        padding: 8px 12px 12px 12px;
-        box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
+        padding: 10px 16px 14px 16px;
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
     }}
 
     div[data-testid="stRadio"] > div {{
@@ -187,7 +236,7 @@ st.markdown(f"""
         justify-content: space-around !important;
         align-items: center !important;
         width: 100% !important;
-        gap: 6px !important;
+        gap: 8px !important;
     }}
 
     div[data-testid="stRadio"] label {{
@@ -195,26 +244,33 @@ st.markdown(f"""
         color: {tab_inactive_fg} !important;
         border: 1px solid {card_border};
         border-radius: 12px;
-        padding: 8px 12px;
+        padding: 10px 14px;
         font-weight: 700;
-        font-size: 0.85rem;
+        font-size: 0.88rem;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         text-align: center;
         flex: 1;
         white-space: nowrap;
+    }}
+
+    div[data-testid="stRadio"] label:hover {{
+        border-color: #38bdf8 !important;
+        transform: translateY(-1px);
     }}
 
     div[data-testid="stRadio"] label[data-checked="true"] {{
         background: {tab_active_bg} !important;
         color: #ffffff !important;
         border-color: #38bdf8 !important;
-        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+        box-shadow: 0 4px 18px rgba(2, 132, 199, 0.45);
+        transform: translateY(-2px);
     }}
 
     div[data-testid="stRadio"] label[data-checked="true"] span,
     div[data-testid="stRadio"] label[data-checked="true"] p {{
         color: #ffffff !important;
+        font-weight: 800 !important;
     }}
 
     /* SIDEBAR STYLING */
@@ -231,7 +287,7 @@ st.markdown(f"""
         color: {theme_text} !important;
         background-color: {card_bg} !important;
         border: 1px solid {card_border} !important;
-        border-radius: 8px !important;
+        border-radius: 10px !important;
     }}
 
     /* INPUT FIELDS & SELECTBOXES */
@@ -239,7 +295,13 @@ st.markdown(f"""
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {input_border} !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
+        transition: all 0.2s ease !important;
+    }}
+
+    div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within {{
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
     }}
 
     div[data-baseweb="select"] > div {{
@@ -249,102 +311,141 @@ st.markdown(f"""
 
     hr, div[data-testid="stDivider"] {{
         border-color: {hr_color} !important;
+        margin: 1.5rem 0 !important;
     }}
 
-    /* Metric Cards Grid */
+    /* METRIC CARDS GRID */
     .theme-metric-grid {{
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 14px;
-        margin-bottom: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
     }}
     .theme-metric-card {{
         background: {card_bg};
+        backdrop-filter: blur(12px);
         border: 1px solid {card_border};
-        border-radius: 14px;
-        padding: 16px 18px;
+        border-radius: 16px;
+        padding: 20px 22px;
         box-shadow: {card_shadow};
-        transition: transform 0.2s ease;
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
     }}
     .theme-metric-card:hover {{
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        box-shadow: 0 14px 35px rgba(0, 0, 0, 0.2);
     }}
     .theme-metric-label {{
-        font-size: 0.78rem;
+        font-size: 0.8rem;
         font-weight: 700;
         color: {theme_subtext} !important;
         text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }}
     .theme-metric-value {{
-        font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+        font-size: clamp(1.8rem, 3.5vw, 2.4rem);
         font-weight: 800;
         color: {theme_text} !important;
-        margin: 4px 0;
+        margin: 6px 0;
+        letter-spacing: -0.03em;
     }}
 
-    /* Log Item Card */
+    /* LOG ITEM CARD */
     .theme-log-card {{
         background: {card_bg};
+        backdrop-filter: blur(12px);
         border-left: 5px solid #0284c7;
-        border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 12px;
+        border-radius: 14px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
         box-shadow: {card_shadow};
         border-top: 1px solid {card_border};
         border-right: 1px solid {card_border};
         border-bottom: 1px solid {card_border};
+        transition: transform 0.2s ease;
+    }}
+    .theme-log-card:hover {{
+        transform: translateX(3px);
     }}
 
-    /* Buttons */
+    /* BUTTONS */
     .stButton>button {{
         background: {btn_bg} !important;
         color: {btn_fg} !important;
         border: 1px solid #38bdf8 !important;
         border-radius: 12px !important;
         font-weight: 700 !important;
+        font-size: 0.95rem !important;
         height: 48px !important;
+        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
+        transition: all 0.25s ease !important;
+    }}
+    .stButton>button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(2, 132, 199, 0.45) !important;
+    }}
+    .stButton>button:active {{
+        transform: translateY(0) !important;
     }}
 
-    /* Company Box */
+    /* COMPANY BRANDING BOX */
     .theme-company-box {{
         background: {company_box_bg};
         color: {company_box_fg} !important;
-        border-radius: 16px;
-        padding: 24px;
-        margin-top: 24px;
+        border-radius: 20px;
+        padding: 28px;
+        margin-top: 28px;
+        border: 1px solid rgba(56, 189, 248, 0.3);
         border-left: 6px solid #38bdf8;
         box-shadow: {card_shadow};
+        position: relative;
+        overflow: hidden;
     }}
     .theme-company-box a {{
         color: {company_box_link} !important;
         text-decoration: none;
         font-weight: 600;
     }}
+    .theme-company-box a:hover {{
+        text-decoration: underline;
+    }}
     .theme-company-box p, .theme-company-box h3, .theme-company-box h4, .theme-company-box span {{
         color: {company_box_fg} !important;
     }}
 
-    /* Responsive Device Media Queries */
+    /* RESPONSIVE BREAKPOINTS */
     @media (max-width: 768px) {{
         div[data-testid="stRadio"] label {{
-            padding: 6px 6px !important;
-            font-size: 0.72rem !important;
+            padding: 8px 6px !important;
+            font-size: 0.76rem !important;
         }}
         .main .block-container {{
-            padding-left: 0.8rem;
-            padding-right: 0.8rem;
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
         }}
         .theme-metric-grid {{
             grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
         }}
         .fixed-top-navbar {{
-            padding: 0 12px;
+            padding: 0 14px;
+        }}
+        .nav-title {{
+            font-size: 1.05rem;
         }}
     }}
 
     @media (max-width: 480px) {{
         .theme-metric-grid {{
             grid-template-columns: 1fr;
+        }}
+        div[data-testid="stRadio"] label {{
+            font-size: 0.7rem !important;
+            padding: 6px 4px !important;
         }}
     }}
     </style>
@@ -461,12 +562,15 @@ now_time = datetime.now().strftime("%I:%M %p")
 st.markdown(f"""
     <div class="fixed-top-navbar">
         <div class="nav-brand">
-            {'<img src="assets/logo.png" width="30" style="border-radius:6px;">' if os.path.exists(logo_path) else '👤'}
+            {'<img src="assets/logo.png" width="32" style="border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.2);">' if os.path.exists(logo_path) else '👤'}
             <span class="nav-title">Face AI Suite</span>
         </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:0.8rem; font-weight:700; color:{theme_subtext};">{now_time}</span>
-            <span class="nav-status">⚡ Live YOLO Engine</span>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:0.82rem; font-weight:700; color:{theme_subtext};">{now_time}</span>
+            <div class="nav-status">
+                <span class="pulse-dot"></span>
+                <span>Live YOLO Engine</span>
+            </div>
         </div>
     </div>
 """, unsafe_allow_html=True)
@@ -542,25 +646,25 @@ if selected_tab == "🎥 Live Scan":
 
     st.markdown(f"""
         <div class="theme-metric-grid">
-            <div class="theme-metric-card">
-                <div class="theme-metric-label">Registered Members</div>
+            <div class="theme-metric-card" style="border-top: 3px solid #0284c7;">
+                <div class="theme-metric-label">👥 Registered Members</div>
                 <div class="theme-metric-value">{summary['total_users']}</div>
-                <div style="font-size:0.75rem; color:{theme_subtext};">Active Profiles</div>
+                <div style="font-size:0.78rem; color:{theme_subtext}; font-weight:600;">Active Profiles</div>
             </div>
-            <div class="theme-metric-card" style="border-left:4px solid #10b981;">
-                <div class="theme-metric-label" style="color:#10b981;">Present Today</div>
+            <div class="theme-metric-card" style="border-top: 3px solid #10b981;">
+                <div class="theme-metric-label" style="color:#10b981;">✅ Present Today</div>
                 <div class="theme-metric-value" style="color:#10b981;">{summary['present']}</div>
-                <div style="font-size:0.75rem; color:{theme_subtext};">Checked In On-Time</div>
+                <div style="font-size:0.78rem; color:{theme_subtext}; font-weight:600;">Checked In On-Time</div>
             </div>
-            <div class="theme-metric-card" style="border-left:4px solid #f59e0b;">
-                <div class="theme-metric-label" style="color:#f59e0b;">Late Today</div>
+            <div class="theme-metric-card" style="border-top: 3px solid #f59e0b;">
+                <div class="theme-metric-label" style="color:#f59e0b;">⏱️ Late Today</div>
                 <div class="theme-metric-value" style="color:#f59e0b;">{summary['late']}</div>
-                <div style="font-size:0.75rem; color:{theme_subtext};">After {work_start_time_str.strftime('%H:%M')} Cutoff</div>
+                <div style="font-size:0.78rem; color:{theme_subtext}; font-weight:600;">After {work_start_time_str.strftime('%H:%M')} Cutoff</div>
             </div>
-            <div class="theme-metric-card" style="border-left:4px solid #ef4444;">
-                <div class="theme-metric-label" style="color:#ef4444;">Absent Today</div>
+            <div class="theme-metric-card" style="border-top: 3px solid #ef4444;">
+                <div class="theme-metric-label" style="color:#ef4444;">🚨 Absent Today</div>
                 <div class="theme-metric-value" style="color:#ef4444;">{summary['absent']}</div>
-                <div style="font-size:0.75rem; color:{theme_subtext};">Pending Check-Ins</div>
+                <div style="font-size:0.78rem; color:{theme_subtext}; font-weight:600;">Pending Check-Ins</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
