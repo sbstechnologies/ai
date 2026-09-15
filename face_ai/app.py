@@ -675,17 +675,40 @@ if selected_tab == "🎥 Live Scan":
     col_feed, col_log = st.columns([1.4, 1])
 
     with col_feed:
-        st.markdown("### 📹 Live Feed Capture")
-        source_mode = st.radio("Select Input Source", ["Webcam Snapshot", "Upload Image File"], horizontal=True)
+        st.markdown("### 📹 Live Feed & Multi-Device Camera")
+        source_mode = st.radio(
+            "Select Input Method",
+            ["📷 Web Camera (Live Stream)", "📱 Mobile Native Camera / Upload"],
+            horizontal=True,
+            key="tab1_source_radio"
+        )
+
+        with st.expander("ℹ️ Camera Permission & Multi-Device Tips", expanded=False):
+            st.markdown("""
+            - **Desktop & Laptops**: Click **"Allow"** when browser prompts for Camera permissions.
+            - **Mobile Phones (Android & iPhone)**: 
+              - Select **📷 Web Camera** for live stream. Tap the **switch camera icon (↻)** in the camera frame to switch between **Front Selfie** and **Rear Camera**.
+              - Select **📱 Mobile Native Camera / Upload** to snap a photo directly using your phone's native camera app.
+            - **HTTPS Connection**: Camera requires a secure HTTPS connection (provided automatically on Streamlit Cloud).
+            """)
 
         image_bgr = None
-        if source_mode == "Webcam Snapshot":
-            cam_photo = st.camera_input("Capture Camera Snapshot")
+        if source_mode == "📷 Web Camera (Live Stream)":
+            cam_photo = st.camera_input(
+                "Capture Live Camera Frame",
+                key="live_scan_camera_input",
+                help="Click Take Photo to process face recognition on live frame."
+            )
             if cam_photo:
                 bytes_data = cam_photo.getvalue()
                 image_bgr = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
         else:
-            uploaded_file = st.file_uploader("Upload Image File", type=["jpg", "jpeg", "png"])
+            uploaded_file = st.file_uploader(
+                "Take Photo using Phone Camera or Upload Image File",
+                type=["jpg", "jpeg", "png"],
+                key="live_scan_file_uploader",
+                help="On mobile devices, tapping this opens your device's native camera app."
+            )
             if uploaded_file:
                 bytes_data = uploaded_file.getvalue()
                 image_bgr = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
@@ -698,7 +721,7 @@ if selected_tab == "🎥 Live Scan":
                 tolerance=tolerance
             )
 
-            st.image(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB), caption=f"YOLO Face AI Analysis ({face_count} face(s) detected)", width="stretch")
+            st.image(cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB), caption=f"YOLO Face AI Analysis ({face_count} face(s) detected)", use_container_width=True)
 
     with col_log:
         st.markdown("### 📋 Recognition Stream")
@@ -780,17 +803,37 @@ elif selected_tab == "👤 Register":
         email = st.text_input("Email Address", placeholder="e.g. john@example.com")
 
     with col_cam:
-        st.markdown("### 📷 Face Photo Capture")
-        reg_source = st.radio("Photo Source", ["Webcam Snapshot", "Upload File"], horizontal=True)
+        st.markdown("### 📷 Member Photo Capture")
+        reg_source = st.radio(
+            "Photo Source Method",
+            ["📷 Web Camera", "📱 Mobile Native Camera / File"],
+            horizontal=True,
+            key="tab2_source_radio"
+        )
+
+        with st.expander("ℹ️ Registration Camera Guidance", expanded=False):
+            st.markdown("""
+            - **Mobile Devices**: On Android/iOS, you can use **📷 Web Camera** or select **📱 Mobile Native Camera / File** to snap a photo directly using your device camera app.
+            - **Front vs Back Camera**: Use the camera toggle button (↻) inside the camera view on smartphones to switch between front and rear lenses.
+            """)
 
         reg_img_bgr = None
-        if reg_source == "Webcam Snapshot":
-            reg_cam = st.camera_input("Take Member Photo")
+        if reg_source == "📷 Web Camera":
+            reg_cam = st.camera_input(
+                "Take Member Photo",
+                key="reg_camera_input",
+                help="Position member's face clearly in center of frame and click Take Photo."
+            )
             if reg_cam:
                 bytes_data = reg_cam.getvalue()
                 reg_img_bgr = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
         else:
-            reg_file = st.file_uploader("Upload Face Photo File", type=["jpg", "jpeg", "png"])
+            reg_file = st.file_uploader(
+                "Take Member Photo or Upload Image File",
+                type=["jpg", "jpeg", "png"],
+                key="reg_file_uploader",
+                help="On smartphones & tablets, tap to take a photo using native camera."
+            )
             if reg_file:
                 bytes_data = reg_file.getvalue()
                 reg_img_bgr = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
