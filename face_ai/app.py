@@ -7,7 +7,14 @@ from datetime import datetime, time
 from io import BytesIO
 
 # Base directory setup for reliable deployment & path resolution
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TARGET_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.exists(os.path.join(TARGET_DIR, "models", "face_model.pt")):
+    BASE_DIR = TARGET_DIR
+elif os.path.exists(os.path.join(TARGET_DIR, "face_ai", "models", "face_model.pt")):
+    BASE_DIR = os.path.join(TARGET_DIR, "face_ai")
+else:
+    BASE_DIR = TARGET_DIR
+
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 

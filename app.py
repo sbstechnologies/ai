@@ -8,8 +8,11 @@ FACE_AI_DIR = os.path.join(BASE_DIR, "face_ai")
 if FACE_AI_DIR not in sys.path:
     sys.path.insert(0, FACE_AI_DIR)
 
-# Delegate execution to face_ai/app.py
+# Delegate execution to face_ai/app.py with proper __file__ context
 target_app = os.path.join(FACE_AI_DIR, "app.py")
 with open(target_app, "r", encoding="utf-8") as f:
     code = compile(f.read(), target_app, "exec")
-    exec(code, globals())
+    exec_globals = dict(globals())
+    exec_globals["__file__"] = target_app
+    exec(code, exec_globals)
+
